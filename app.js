@@ -82,6 +82,21 @@ function createFreshRasterPane(requestId) {
   return paneName;
 }
 
+function forceRasterRefresh() {
+  const center = map.getCenter();
+  const zoom = map.getZoom();
+
+  setTimeout(() => {
+    map.setView(center, zoom, { animate: false });
+    map.invalidateSize(false);
+  }, 0);
+
+  setTimeout(() => {
+    map.setView(center, zoom, { animate: false });
+    map.invalidateSize(false);
+  }, 80);
+}
+
 async function loadRaster(url, requestId) {
   try {
     removeOldRaster();
@@ -93,9 +108,12 @@ async function loadRaster(url, requestId) {
 
     console.log("Lade Raster:", url, "requestId:", requestId);
 
-    const response = await fetch(url, { cache: "no-store" });
+    // Cache-Busting
+    const fetchUrl = `${url}?v=${requestId}`;
+
+    const response = await fetch(fetchUrl, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(`Datei konnte nicht geladen werden: ${url} (${response.status})`);
+      throw new Error(`Datei konnte nicht geladen werden: ${fetchUrl} (${response.status})`);
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -139,18 +157,19 @@ async function loadRaster(url, requestId) {
 
     currentLayer = layer;
     currentLayer.addTo(map);
-
     currentLayer.redraw();
 
     setTimeout(() => {
       if (currentLayer === layer && requestId === activeRequestId) {
         currentLayer.redraw();
+        forceRasterRefresh();
       }
     }, 50);
 
     setTimeout(() => {
       if (currentLayer === layer && requestId === activeRequestId) {
         currentLayer.redraw();
+        forceRasterRefresh();
       }
     }, 200);
 
@@ -180,7 +199,8 @@ async function updateMap() {
   await loadRaster(url, requestId);
 }
 
-periodSlider.addEventListener("change", updateMap);
+// WICHTIG: nur EIN Event pro Steuerung
+periodSlider.addEventListener("input", updateMap);
 scenarioSelect.addEventListener("change", updateMap);
 
 updateMap();
