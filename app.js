@@ -264,7 +264,7 @@ map.on("mousemove", (e) => {
 
   hoverTooltip
     .setLatLng(e.latlng)
-    .setContent(`Score: <b>${score}</b>`)
+    .setContent(`Anbau-Score: <b>${score}</b>`)
     .addTo(map);
 });
 
