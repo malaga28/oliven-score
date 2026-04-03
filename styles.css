@@ -122,8 +122,3 @@ body {
     height: 16px;
   }
 }
-
-.leaflet-pane canvas {
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
-}
