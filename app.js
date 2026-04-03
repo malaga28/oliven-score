@@ -10,9 +10,6 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 20
 }).addTo(map);
 
-map.createPane("rasterPane");
-map.getPane("rasterPane").style.zIndex = 450;
-
 const periods = [
   "1951-1980",
   "1981-2014",
@@ -27,6 +24,7 @@ const scenarioSelect = document.getElementById("scenarioSelect");
 
 let currentLayer = null;
 let activeRequestId = 0;
+let activePaneName = null;
 
 function getRasterUrl() {
   const period = periods[Number(periodSlider.value)];
@@ -56,7 +54,7 @@ function scoreToColor(score) {
   return colors[score] ?? null;
 }
 
-function clearCurrentRaster() {
+function removeOldRaster() {
   if (currentLayer) {
     try {
       map.removeLayer(currentLayer);
@@ -66,15 +64,27 @@ function clearCurrentRaster() {
     currentLayer = null;
   }
 
-  const pane = map.getPane("rasterPane");
-  if (pane) {
-    pane.innerHTML = "";
+  if (activePaneName) {
+    const pane = map.getPane(activePaneName);
+    if (pane && pane.parentNode) {
+      pane.parentNode.removeChild(pane);
+    }
+    activePaneName = null;
   }
+}
+
+function createFreshRasterPane(requestId) {
+  const paneName = `rasterPane_${requestId}`;
+  map.createPane(paneName);
+  const pane = map.getPane(paneName);
+  pane.style.zIndex = 450;
+  pane.style.pointerEvents = "none";
+  return paneName;
 }
 
 async function loadRaster(url, requestId) {
   try {
-    clearCurrentRaster();
+    removeOldRaster();
 
     if (!url) {
       console.warn("Kein Raster für diese Auswahl gefunden.");
@@ -102,11 +112,14 @@ async function loadRaster(url, requestId) {
       return;
     }
 
-    const newLayer = new GeoRasterLayer({
+    const paneName = createFreshRasterPane(requestId);
+    activePaneName = paneName;
+
+    const layer = new GeoRasterLayer({
       georaster,
       opacity: 0.55,
-      resolution: 128,
-      pane: "rasterPane",
+      resolution: 64,
+      pane: paneName,
       resampleMethod: "nearest",
       pixelValuesToColorFn: (values) => {
         const value = values[0];
@@ -124,22 +137,22 @@ async function loadRaster(url, requestId) {
       return;
     }
 
-currentLayer = newLayer;
-currentLayer.addTo(map);
+    currentLayer = layer;
+    currentLayer.addTo(map);
 
-currentLayer.redraw();
-
-setTimeout(() => {
-  if (currentLayer && requestId === activeRequestId) {
     currentLayer.redraw();
-  }
-}, 50);
 
-setTimeout(() => {
-  if (currentLayer && requestId === activeRequestId) {
-    currentLayer.redraw();
-  }
-}, 200);
+    setTimeout(() => {
+      if (currentLayer === layer && requestId === activeRequestId) {
+        currentLayer.redraw();
+      }
+    }, 50);
+
+    setTimeout(() => {
+      if (currentLayer === layer && requestId === activeRequestId) {
+        currentLayer.redraw();
+      }
+    }, 200);
 
   } catch (error) {
     console.error("Fehler beim Laden des Rasters:", error);
@@ -151,12 +164,7 @@ async function updateMap() {
   periodLabel.textContent = period;
 
   const isHistorical = period === "1951-1980" || period === "1981-2014";
-
-  if (isHistorical) {
-    scenarioSelect.disabled = true;
-  } else {
-    scenarioSelect.disabled = false;
-  }
+  scenarioSelect.disabled = isHistorical;
 
   const url = getRasterUrl();
 
@@ -172,7 +180,6 @@ async function updateMap() {
   await loadRaster(url, requestId);
 }
 
-periodSlider.addEventListener("input", updateMap);
 periodSlider.addEventListener("change", updateMap);
 scenarioSelect.addEventListener("change", updateMap);
 
