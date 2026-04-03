@@ -6,7 +6,7 @@ const map = L.map("map", {
 
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   attribution: '&copy; OpenStreetMap-Mitwirkende &copy; CARTO',
-  subdomains: 'abcd',
+  subdomains: "abcd",
   maxZoom: 20
 }).addTo(map);
 
@@ -26,6 +26,7 @@ const periodLabel = document.getElementById("periodLabel");
 const scenarioSelect = document.getElementById("scenarioSelect");
 
 let currentLayer = null;
+let activeRequestId = 0;
 
 function getRasterUrl() {
   const period = periods[Number(periodSlider.value)];
@@ -55,19 +56,32 @@ function scoreToColor(score) {
   return colors[score] ?? null;
 }
 
-async function loadRaster(url) {
-  try {
-    if (currentLayer) {
+function clearCurrentRaster() {
+  if (currentLayer) {
+    try {
       map.removeLayer(currentLayer);
-      currentLayer = null;
+    } catch (e) {
+      console.warn("Alter Layer konnte nicht entfernt werden:", e);
     }
+    currentLayer = null;
+  }
+
+  const pane = map.getPane("rasterPane");
+  if (pane) {
+    pane.innerHTML = "";
+  }
+}
+
+async function loadRaster(url, requestId) {
+  try {
+    clearCurrentRaster();
 
     if (!url) {
       console.warn("Kein Raster für diese Auswahl gefunden.");
       return;
     }
 
-    console.log("Lade Raster:", url);
+    console.log("Lade Raster:", url, "requestId:", requestId);
 
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
@@ -75,9 +89,20 @@ async function loadRaster(url) {
     }
 
     const arrayBuffer = await response.arrayBuffer();
+
+    if (requestId !== activeRequestId) {
+      console.log("Veralteter Request verworfen:", requestId);
+      return;
+    }
+
     const georaster = await parseGeoraster(arrayBuffer);
 
-    currentLayer = new GeoRasterLayer({
+    if (requestId !== activeRequestId) {
+      console.log("Veralteter Request nach parse verworfen:", requestId);
+      return;
+    }
+
+    const newLayer = new GeoRasterLayer({
       georaster,
       opacity: 0.55,
       resolution: 128,
@@ -94,13 +119,28 @@ async function loadRaster(url) {
       }
     });
 
+    if (requestId !== activeRequestId) {
+      console.log("Veralteter Layer vor addTo verworfen:", requestId);
+      return;
+    }
+
+    currentLayer = newLayer;
     currentLayer.addTo(map);
 
-    try {
-      map.fitBounds(currentLayer.getBounds());
-    } catch (e) {
-      console.warn("Bounds konnten nicht gesetzt werden:", e);
-    }
+    currentLayer.redraw();
+
+    setTimeout(() => {
+      if (currentLayer && requestId === activeRequestId) {
+        currentLayer.redraw();
+      }
+    }, 50);
+
+    setTimeout(() => {
+      if (currentLayer && requestId === activeRequestId) {
+        currentLayer.redraw();
+      }
+    }, 200);
+
   } catch (error) {
     console.error("Fehler beim Laden des Rasters:", error);
   }
@@ -120,12 +160,16 @@ async function updateMap() {
 
   const url = getRasterUrl();
 
+  activeRequestId += 1;
+  const requestId = activeRequestId;
+
   console.log("Aktuelle Auswahl:");
   console.log("Periode:", period);
   console.log("Szenario:", scenarioSelect.value);
   console.log("URL:", url);
+  console.log("Neue requestId:", requestId);
 
-  await loadRaster(url);
+  await loadRaster(url, requestId);
 }
 
 periodSlider.addEventListener("input", updateMap);
