@@ -124,22 +124,22 @@ async function loadRaster(url, requestId) {
       return;
     }
 
-    currentLayer = newLayer;
-    currentLayer.addTo(map);
+currentLayer = newLayer;
+currentLayer.addTo(map);
 
+currentLayer.redraw();
+
+setTimeout(() => {
+  if (currentLayer && requestId === activeRequestId) {
     currentLayer.redraw();
+  }
+}, 50);
 
-    setTimeout(() => {
-      if (currentLayer && requestId === activeRequestId) {
-        currentLayer.redraw();
-      }
-    }, 50);
-
-    setTimeout(() => {
-      if (currentLayer && requestId === activeRequestId) {
-        currentLayer.redraw();
-      }
-    }, 200);
+setTimeout(() => {
+  if (currentLayer && requestId === activeRequestId) {
+    currentLayer.redraw();
+  }
+}, 200);
 
   } catch (error) {
     console.error("Fehler beim Laden des Rasters:", error);
