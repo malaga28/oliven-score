@@ -22,9 +22,8 @@ const periodSlider = document.getElementById("periodSlider");
 const periodLabel = document.getElementById("periodLabel");
 const scenarioSelect = document.getElementById("scenarioSelect");
 
-let currentLayer = null;
+let currentOverlay = null;
 let activeRequestId = 0;
-let activePaneName = null;
 
 function getRasterUrl() {
   const period = periods[Number(periodSlider.value)];
@@ -54,52 +53,81 @@ function scoreToColor(score) {
   return colors[score] ?? null;
 }
 
-function removeOldRaster() {
-  if (currentLayer) {
-    try {
-      map.removeLayer(currentLayer);
-    } catch (e) {
-      console.warn("Alter Layer konnte nicht entfernt werden:", e);
-    }
-    currentLayer = null;
-  }
+function hexToRgb(hex) {
+  if (!hex) return null;
+  const clean = hex.replace("#", "");
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16)
+  };
+}
 
-  if (activePaneName) {
-    const pane = map.getPane(activePaneName);
-    if (pane && pane.parentNode) {
-      pane.parentNode.removeChild(pane);
-    }
-    activePaneName = null;
+function removeOldOverlay() {
+  if (currentOverlay) {
+    map.removeLayer(currentOverlay);
+    currentOverlay = null;
   }
 }
 
-function createFreshRasterPane(requestId) {
-  const paneName = `rasterPane_${requestId}`;
-  map.createPane(paneName);
-  const pane = map.getPane(paneName);
-  pane.style.zIndex = 450;
-  pane.style.pointerEvents = "none";
-  return paneName;
-}
+function rasterToDataUrl(georaster) {
+  const width = georaster.width;
+  const height = georaster.height;
+  const band = georaster.values[0];
+  const noDataValue = georaster.noDataValue;
 
-function forceRasterRefresh() {
-  const center = map.getCenter();
-  const zoom = map.getZoom();
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
 
-  setTimeout(() => {
-    map.setView(center, zoom, { animate: false });
-    map.invalidateSize(false);
-  }, 0);
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
 
-  setTimeout(() => {
-    map.setView(center, zoom, { animate: false });
-    map.invalidateSize(false);
-  }, 80);
+  let p = 0;
+
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const value = band[row][col];
+
+      if (
+        value === null ||
+        value === undefined ||
+        isNaN(value) ||
+        value === noDataValue
+      ) {
+        data[p] = 0;
+        data[p + 1] = 0;
+        data[p + 2] = 0;
+        data[p + 3] = 0;
+      } else {
+        const score = Math.round(value);
+        const color = hexToRgb(scoreToColor(score));
+
+        if (!color) {
+          data[p] = 0;
+          data[p + 1] = 0;
+          data[p + 2] = 0;
+          data[p + 3] = 0;
+        } else {
+          data[p] = color.r;
+          data[p + 1] = color.g;
+          data[p + 2] = color.b;
+          data[p + 3] = 255;
+        }
+      }
+
+      p += 4;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 async function loadRaster(url, requestId) {
   try {
-    removeOldRaster();
+    removeOldOverlay();
 
     if (!url) {
       console.warn("Kein Raster für diese Auswahl gefunden.");
@@ -108,10 +136,9 @@ async function loadRaster(url, requestId) {
 
     console.log("Lade Raster:", url, "requestId:", requestId);
 
-    // Cache-Busting
     const fetchUrl = `${url}?v=${requestId}`;
-
     const response = await fetch(fetchUrl, { cache: "no-store" });
+
     if (!response.ok) {
       throw new Error(`Datei konnte nicht geladen werden: ${fetchUrl} (${response.status})`);
     }
@@ -130,48 +157,26 @@ async function loadRaster(url, requestId) {
       return;
     }
 
-    const paneName = createFreshRasterPane(requestId);
-    activePaneName = paneName;
+    const imageUrl = rasterToDataUrl(georaster);
 
-    const layer = new GeoRasterLayer({
-      georaster,
+    const bounds = [
+      [georaster.ymin, georaster.xmin],
+      [georaster.ymax, georaster.xmax]
+    ];
+
+    const overlay = L.imageOverlay(imageUrl, bounds, {
       opacity: 0.55,
-      resolution: 64,
-      pane: paneName,
-      resampleMethod: "nearest",
-      pixelValuesToColorFn: (values) => {
-        const value = values[0];
-
-        if (value === null || value === undefined || isNaN(value)) {
-          return null;
-        }
-
-        return scoreToColor(Math.round(value));
-      }
+      interactive: false,
+      className: "pixelated-overlay"
     });
 
     if (requestId !== activeRequestId) {
-      console.log("Veralteter Layer vor addTo verworfen:", requestId);
+      console.log("Veraltetes Overlay verworfen:", requestId);
       return;
     }
 
-    currentLayer = layer;
-    currentLayer.addTo(map);
-    currentLayer.redraw();
-
-    setTimeout(() => {
-      if (currentLayer === layer && requestId === activeRequestId) {
-        currentLayer.redraw();
-        forceRasterRefresh();
-      }
-    }, 50);
-
-    setTimeout(() => {
-      if (currentLayer === layer && requestId === activeRequestId) {
-        currentLayer.redraw();
-        forceRasterRefresh();
-      }
-    }, 200);
+    currentOverlay = overlay;
+    currentOverlay.addTo(map);
 
   } catch (error) {
     console.error("Fehler beim Laden des Rasters:", error);
@@ -199,7 +204,6 @@ async function updateMap() {
   await loadRaster(url, requestId);
 }
 
-// WICHTIG: nur EIN Event pro Steuerung
 periodSlider.addEventListener("input", updateMap);
 scenarioSelect.addEventListener("change", updateMap);
 
