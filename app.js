@@ -6,6 +6,9 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 20
 }).addTo(map);
 
+map.createPane("rasterPane");
+map.getPane("rasterPane").style.zIndex = 450;
+
 const periods = [
   "1951-1980",
   "1981-2014",
