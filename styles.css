@@ -1,0 +1,124 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+}
+
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+}
+
+#controls label {
+  font-weight: 600;
+  color: #333;
+}
+
+#controls input[type="range"] {
+  width: 220px;
+}
+
+#controls select {
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: white;
+}
+
+#periodLabel {
+  min-width: 90px;
+  font-weight: 600;
+  color: #2f4f2f;
+}
+
+#map {
+  flex: 1;
+  width: 100%;
+  min-height: 500px;
+}
+
+#legend {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  line-height: 1.4;
+  z-index: 1000;
+}
+
+#legend h4 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  color: #222;
+}
+
+#legend div {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.box {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Farbskala 0–10 */
+.score0  { background: #8b0000; }
+.score1  { background: #b22222; }
+.score2  { background: #d95f0e; }
+.score3  { background: #f16913; }
+.score4  { background: #fdae6b; }
+.score5  { background: #fee08b; }
+.score6  { background: #d9ef8b; }
+.score7  { background: #a6d96a; }
+.score8  { background: #66bd63; }
+.score9  { background: #1a9850; }
+.score10 { background: #006837; }
+
+@media (max-width: 700px) {
+  #controls {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  #controls input[type="range"] {
+    width: 100%;
+    max-width: 280px;
+  }
+
+  #legend {
+    right: 10px;
+    bottom: 10px;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .box {
+    width: 16px;
+    height: 16px;
+  }
+}
