@@ -23,7 +23,16 @@ const periodLabel = document.getElementById("periodLabel");
 const scenarioSelect = document.getElementById("scenarioSelect");
 
 let currentOverlay = null;
+let currentGeoraster = null;
 let activeRequestId = 0;
+let hoverMarker = null;
+
+const hoverTooltip = L.tooltip({
+  permanent: false,
+  direction: "top",
+  offset: [0, -8],
+  opacity: 0.95
+});
 
 function getRasterUrl() {
   const period = periods[Number(periodSlider.value)];
@@ -68,6 +77,8 @@ function removeOldOverlay() {
     map.removeLayer(currentOverlay);
     currentOverlay = null;
   }
+  currentGeoraster = null;
+  map.closeTooltip(hoverTooltip);
 }
 
 function rasterToDataUrl(georaster) {
@@ -125,6 +136,44 @@ function rasterToDataUrl(georaster) {
   return canvas.toDataURL("image/png");
 }
 
+function getRasterValueAtLatLng(latlng) {
+  if (!currentGeoraster) return null;
+
+  const { xmin, xmax, ymin, ymax, width, height, values, noDataValue } = currentGeoraster;
+  const band = values[0];
+
+  if (
+    latlng.lng < xmin ||
+    latlng.lng > xmax ||
+    latlng.lat < ymin ||
+    latlng.lat > ymax
+  ) {
+    return null;
+  }
+
+  const xRatio = (latlng.lng - xmin) / (xmax - xmin);
+  const yRatio = (ymax - latlng.lat) / (ymax - ymin);
+
+  let col = Math.floor(xRatio * width);
+  let row = Math.floor(yRatio * height);
+
+  col = Math.max(0, Math.min(width - 1, col));
+  row = Math.max(0, Math.min(height - 1, row));
+
+  const value = band[row][col];
+
+  if (
+    value === null ||
+    value === undefined ||
+    isNaN(value) ||
+    value === noDataValue
+  ) {
+    return null;
+  }
+
+  return Math.round(value);
+}
+
 async function loadRaster(url, requestId) {
   try {
     removeOldOverlay();
@@ -175,6 +224,7 @@ async function loadRaster(url, requestId) {
       return;
     }
 
+    currentGeoraster = georaster;
     currentOverlay = overlay;
     currentOverlay.addTo(map);
 
@@ -203,6 +253,24 @@ async function updateMap() {
 
   await loadRaster(url, requestId);
 }
+
+map.on("mousemove", (e) => {
+  const score = getRasterValueAtLatLng(e.latlng);
+
+  if (score === null) {
+    map.closeTooltip(hoverTooltip);
+    return;
+  }
+
+  hoverTooltip
+    .setLatLng(e.latlng)
+    .setContent(`Score: <b>${score}</b>`)
+    .addTo(map);
+});
+
+map.on("mouseout", () => {
+  map.closeTooltip(hoverTooltip);
+});
 
 periodSlider.addEventListener("input", updateMap);
 scenarioSelect.addEventListener("change", updateMap);
