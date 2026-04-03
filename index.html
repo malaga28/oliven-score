@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oliven-Anbaueignung Andalusien</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="controls">
+    <label for="periodSlider">Zeitraum</label>
+    <input type="range" id="periodSlider" min="0" max="3" step="1" value="0" />
+    <span id="periodLabel"></span>
+
+    <label for="scenarioSelect">Szenario</label>
+    <select id="scenarioSelect">
+      <option value="historical">Historisch</option>
+      <option value="ssp126">SSP126</option>
+      <option value="ssp585">SSP585</option>
+    </select>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="legend">
+    <h4>Eignungsscore</h4>
+    <div><span class="box score0"></span> 0</div>
+    <div><span class="box score1"></span> 1</div>
+    <div><span class="box score2"></span> 2</div>
+    <div><span class="box score3"></span> 3</div>
+    <div><span class="box score4"></span> 4</div>
+    <div><span class="box score5"></span> 5</div>
+    <div><span class="box score6"></span> 6</div>
+    <div><span class="box score7"></span> 7</div>
+    <div><span class="box score8"></span> 8</div>
+    <div><span class="box score9"></span> 9</div>
+    <div><span class="box score10"></span> 10</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>
+  <script src="https://unpkg.com/georaster/dist/georaster.browserify.min.js"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
+  <script src="config/layers.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
