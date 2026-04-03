@@ -127,3 +127,9 @@ body {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
+
+.leaflet-tooltip {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+}
