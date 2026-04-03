@@ -63,22 +63,22 @@ async function loadRaster(url) {
   const arrayBuffer = await response.arrayBuffer();
   const georaster = await parseGeoraster(arrayBuffer);
 
-currentLayer = new GeoRasterLayer({
-  georaster: georaster,
-  opacity: 0.55,
-  resolution: 256,
-  pane: "rasterPane",
-  resampleMethod: "nearest",
-  pixelValuesToColorFn: (values) => {
-    const value = values[0];
+  currentLayer = new GeoRasterLayer({
+    georaster: georaster,
+    opacity: 0.55,
+    resolution: 256,
+    pane: "rasterPane",
+    resampleMethod: "nearest",
+    pixelValuesToColorFn: (values) => {
+      const value = values[0];
 
-    if (value === null || value === undefined || isNaN(value)) {
-      return null;
+      if (value === null || value === undefined || isNaN(value)) {
+        return null;
+      }
+
+      return scoreToColor(Math.round(value));
     }
-
-    return scoreToColor(Math.round(value));
-  }
-});
+  });
 
   currentLayer.addTo(map);
 
@@ -99,9 +99,6 @@ async function updateMap() {
     scenarioSelect.disabled = true;
   } else {
     scenarioSelect.disabled = false;
-    if (scenarioSelect.value === "historical") {
-      scenarioSelect.value = "ssp245";
-    }
   }
 
   const url = getRasterUrl();
