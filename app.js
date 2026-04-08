@@ -496,7 +496,7 @@ function renderChart(percentages, period, scenario) {
         x: {
           title: {
             display: true,
-            text: "Anbau-Skala"
+            text: "Olivenanbau-Score"
           },
           grid: {
             display: false
@@ -504,6 +504,7 @@ function renderChart(percentages, period, scenario) {
         },
         y: {
           beginAtZero: true,
+          max: 60,
           title: {
             display: true,
             text: "Olivenflächen [%]"
@@ -517,6 +518,11 @@ function renderChart(percentages, period, scenario) {
       }
     }
   });
+
+  const scenarioText = isHistoricalPeriod(period) ? "" : `, ${scenario.toUpperCase()}`;
+  chartTitle.textContent = `Klimatische Anbaueignung (${period}${scenarioText}) der Olivenflächen (Stand 2000)`;
+  chartStatus.textContent = "";
+}
 
   const scenarioText = isHistoricalPeriod(period) ? "historisch" : scenario.toUpperCase();
   chartTitle.textContent = `Verteilung der Olivenflächen – ${period} (${scenarioText})`;
