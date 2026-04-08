@@ -19,9 +19,19 @@
       <option value="ssp245">SSP245</option>
       <option value="ssp585">SSP585</option>
     </select>
+
+    <button id="toggleOlivesBtn" type="button">Olivenflächen: aus</button>
   </div>
 
   <div id="map"></div>
+
+  <div id="chartPanel">
+    <h4 id="chartTitle">Verteilung der Olivenflächen</h4>
+    <div id="chartStatus"></div>
+    <div class="chartCanvasWrap">
+      <canvas id="chartCanvas"></canvas>
+    </div>
+  </div>
 
   <div id="legend">
     <h4>Olivenanbau-Score</h4>
@@ -42,6 +52,7 @@
   <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>
   <script src="https://unpkg.com/georaster/dist/georaster.browserify.min.js"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="config/layers.js"></script>
   <script src="app.js"></script>
 </body>
