@@ -21,11 +21,20 @@ const periods = [
 const periodSlider = document.getElementById("periodSlider");
 const periodLabel = document.getElementById("periodLabel");
 const scenarioSelect = document.getElementById("scenarioSelect");
+const toggleOlivesBtn = document.getElementById("toggleOlivesBtn");
+const chartCanvas = document.getElementById("chartCanvas");
+const chartTitle = document.getElementById("chartTitle");
+const chartStatus = document.getElementById("chartStatus");
 
 let currentOverlay = null;
 let currentGeoraster = null;
 let activeRequestId = 0;
-let hoverMarker = null;
+
+let olivesVisible = false;
+let oliveOverlay = null;
+let oliveRasterPromise = null;
+
+let scoreChart = null;
 
 const hoverTooltip = L.tooltip({
   permanent: false,
@@ -34,15 +43,34 @@ const hoverTooltip = L.tooltip({
   opacity: 0.95
 });
 
+function getCurrentPeriod() {
+  return periods[Number(periodSlider.value)];
+}
+
+function isHistoricalPeriod(period) {
+  return period === "1951-1980" || period === "1981-2014";
+}
+
 function getRasterUrl() {
-  const period = periods[Number(periodSlider.value)];
+  const period = getCurrentPeriod();
   const scenario = scenarioSelect.value;
 
-  if (period === "1951-1980" || period === "1981-2014") {
-    return layersConfig.historical[period] || null;
+  if (isHistoricalPeriod(period)) {
+    return layersConfig.scoreRasters.historical[period] || null;
   }
 
-  return layersConfig.future[scenario]?.[period] || null;
+  return layersConfig.scoreRasters.future[scenario]?.[period] || null;
+}
+
+function getChartCsvUrl() {
+  const period = getCurrentPeriod();
+  const scenario = scenarioSelect.value;
+
+  if (isHistoricalPeriod(period)) {
+    return layersConfig.chartCSVs.historical[period] || null;
+  }
+
+  return layersConfig.chartCSVs.future[scenario]?.[period] || null;
 }
 
 function scoreToColor(score) {
@@ -126,6 +154,54 @@ function rasterToDataUrl(georaster) {
           data[p + 2] = color.b;
           data[p + 3] = 255;
         }
+      }
+
+      p += 4;
+    }
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+function oliveRasterToDataUrl(georaster) {
+  const width = georaster.width;
+  const height = georaster.height;
+  const band = georaster.values[0];
+  const noDataValue = georaster.noDataValue;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  const imageData = ctx.createImageData(width, height);
+  const data = imageData.data;
+
+  let p = 0;
+
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      const value = band[row][col];
+
+      const isNoData =
+        value === null ||
+        value === undefined ||
+        isNaN(value) ||
+        value === noDataValue;
+
+      const hasOlives = !isNoData && Number(value) > 0;
+
+      if (!hasOlives) {
+        data[p] = 0;
+        data[p + 1] = 0;
+        data[p + 2] = 0;
+        data[p + 3] = 0;
+      } else {
+        data[p] = 36;
+        data[p + 1] = 110;
+        data[p + 2] = 54;
+        data[p + 3] = 150;
       }
 
       p += 4;
@@ -228,17 +304,263 @@ async function loadRaster(url, requestId) {
     currentOverlay = overlay;
     currentOverlay.addTo(map);
 
+    if (olivesVisible) {
+      await ensureOliveOverlay();
+    }
+
   } catch (error) {
     console.error("Fehler beim Laden des Rasters:", error);
   }
 }
 
+async function fetchOliveGeoraster() {
+  if (!oliveRasterPromise) {
+    oliveRasterPromise = (async () => {
+      const response = await fetch(`${layersConfig.oliveRaster}?v=1`, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`Olivenraster konnte nicht geladen werden: ${layersConfig.oliveRaster} (${response.status})`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return parseGeoraster(arrayBuffer);
+    })();
+  }
+  return oliveRasterPromise;
+}
+
+async function ensureOliveOverlay() {
+  if (oliveOverlay) {
+    if (!map.hasLayer(oliveOverlay)) {
+      oliveOverlay.addTo(map);
+    }
+    return;
+  }
+
+  try {
+    const georaster = await fetchOliveGeoraster();
+    const imageUrl = oliveRasterToDataUrl(georaster);
+
+    const bounds = [
+      [georaster.ymin, georaster.xmin],
+      [georaster.ymax, georaster.xmax]
+    ];
+
+    oliveOverlay = L.imageOverlay(imageUrl, bounds, {
+      opacity: 0.75,
+      interactive: false,
+      className: "pixelated-overlay olives-overlay"
+    });
+
+    if (olivesVisible) {
+      oliveOverlay.addTo(map);
+    }
+  } catch (error) {
+    console.error("Fehler beim Laden des Olivenrasters:", error);
+  }
+}
+
+function setOliveButtonState() {
+  toggleOlivesBtn.classList.toggle("active", olivesVisible);
+  toggleOlivesBtn.textContent = olivesVisible ? "Olivenflächen: an" : "Olivenflächen: aus";
+}
+
+async function toggleOliveOverlay() {
+  olivesVisible = !olivesVisible;
+  setOliveButtonState();
+
+  if (olivesVisible) {
+    await ensureOliveOverlay();
+  } else if (oliveOverlay && map.hasLayer(oliveOverlay)) {
+    map.removeLayer(oliveOverlay);
+  }
+}
+
+function detectDelimiter(line) {
+  return line.includes(";") ? ";" : ",";
+}
+
+function parseNumber(value) {
+  if (value === null || value === undefined) return NaN;
+  const cleaned = String(value).trim().replace("%", "").replace(",", ".");
+  return Number(cleaned);
+}
+
+function normalizeCsvRows(text) {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
+
+  if (!lines.length) return [];
+
+  const delimiter = detectDelimiter(lines[0]);
+  const rows = lines.map(line => line.split(delimiter).map(cell => cell.trim()));
+
+  const firstRow = rows[0];
+  const hasHeader = firstRow.some(cell => /[a-zA-ZäöüÄÖÜ]/.test(cell));
+
+  if (!hasHeader) {
+    return rows.map(cols => ({
+      score: parseNumber(cols[0]),
+      percent: parseNumber(cols[1])
+    }));
+  }
+
+  const headers = firstRow.map(h => h.toLowerCase());
+
+  const scoreIndex = headers.findIndex(h =>
+    h.includes("score") ||
+    h.includes("klasse") ||
+    h.includes("class") ||
+    h.includes("value") ||
+    h.includes("skala")
+  );
+
+  const percentIndex = headers.findIndex(h =>
+    h.includes("percent") ||
+    h.includes("percentage") ||
+    h.includes("prozent") ||
+    h.includes("anteil") ||
+    h.includes("share") ||
+    h.includes("%")
+  );
+
+  return rows.slice(1).map(cols => ({
+    score: parseNumber(cols[scoreIndex >= 0 ? scoreIndex : 0]),
+    percent: parseNumber(cols[percentIndex >= 0 ? percentIndex : 1])
+  }));
+}
+
+function toChartArray(rows) {
+  const arr = Array.from({ length: 11 }, () => 0);
+
+  rows.forEach(row => {
+    const score = Math.round(row.score);
+    const percent = row.percent;
+
+    if (
+      Number.isFinite(score) &&
+      Number.isFinite(percent) &&
+      score >= 0 &&
+      score <= 10
+    ) {
+      arr[score] = percent;
+    }
+  });
+
+  return arr;
+}
+
+function destroyChart() {
+  if (scoreChart) {
+    scoreChart.destroy();
+    scoreChart = null;
+  }
+}
+
+function renderChart(percentages, period, scenario) {
+  destroyChart();
+
+  const labels = Array.from({ length: 11 }, (_, i) => String(i));
+  const barColors = labels.map(label => scoreToColor(Number(label)));
+
+  scoreChart = new Chart(chartCanvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Olivenflächen [%]",
+        data: percentages,
+        backgroundColor: barColors,
+        borderColor: barColors,
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw ?? 0;
+              return `${context.label}: ${Number(value).toFixed(1)} %`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: "Anbau-Skala"
+          },
+          grid: {
+            display: false
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: "Olivenflächen [%]"
+          },
+          ticks: {
+            callback: function(value) {
+              return value + " %";
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const scenarioText = isHistoricalPeriod(period) ? "historisch" : scenario.toUpperCase();
+  chartTitle.textContent = `Verteilung der Olivenflächen – ${period} (${scenarioText})`;
+  chartStatus.textContent = "";
+}
+
+async function updateChart() {
+  const period = getCurrentPeriod();
+  const scenario = scenarioSelect.value;
+  const csvUrl = getChartCsvUrl();
+
+  chartTitle.textContent = "Verteilung der Olivenflächen";
+  chartStatus.textContent = "Lade Diagramm ...";
+
+  destroyChart();
+
+  if (!csvUrl) {
+    chartStatus.textContent = "Keine CSV gefunden.";
+    return;
+  }
+
+  try {
+    const response = await fetch(`${csvUrl}?v=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`CSV konnte nicht geladen werden: ${csvUrl} (${response.status})`);
+    }
+
+    const text = await response.text();
+    const rows = normalizeCsvRows(text);
+    const percentages = toChartArray(rows);
+
+    renderChart(percentages, period, scenario);
+  } catch (error) {
+    console.error("Fehler beim Laden des Diagramms:", error);
+    chartStatus.textContent = "Diagramm konnte nicht geladen werden.";
+  }
+}
+
 async function updateMap() {
-  const period = periods[Number(periodSlider.value)];
+  const period = getCurrentPeriod();
   periodLabel.textContent = period;
 
-  const isHistorical = period === "1951-1980" || period === "1981-2014";
-  scenarioSelect.disabled = isHistorical;
+  const historical = isHistoricalPeriod(period);
+  scenarioSelect.disabled = historical;
 
   const url = getRasterUrl();
 
@@ -251,7 +573,10 @@ async function updateMap() {
   console.log("URL:", url);
   console.log("Neue requestId:", requestId);
 
-  await loadRaster(url, requestId);
+  await Promise.all([
+    loadRaster(url, requestId),
+    updateChart()
+  ]);
 }
 
 map.on("mousemove", (e) => {
@@ -274,5 +599,7 @@ map.on("mouseout", () => {
 
 periodSlider.addEventListener("input", updateMap);
 scenarioSelect.addEventListener("change", updateMap);
+toggleOlivesBtn.addEventListener("click", toggleOliveOverlay);
 
+setOliveButtonState();
 updateMap();
