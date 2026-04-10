@@ -400,14 +400,16 @@ function normalizeCsvRows(text) {
 
   if (!hasHeader) {
     return rows.map(cols => ({
-      score: parseNumber(cols[0]),
-      percent: parseNumber(cols[1])
+      value: parseNumber(cols[0]),
+      pixelCount: parseNumber(cols[1]),
+      percent: parseNumber(cols[2] ?? cols[1])
     }));
   }
 
   const headers = firstRow.map(h => h.toLowerCase());
 
-  const scoreIndex = headers.findIndex(h =>
+  const valueIndex = headers.findIndex(h =>
+    h.includes("score_value") ||
     h.includes("score") ||
     h.includes("klasse") ||
     h.includes("class") ||
@@ -415,7 +417,15 @@ function normalizeCsvRows(text) {
     h.includes("skala")
   );
 
+  const pixelCountIndex = headers.findIndex(h =>
+    h.includes("pixel_count") ||
+    h.includes("pixelcount") ||
+    h.includes("count") ||
+    h.includes("pixels")
+  );
+
   const percentIndex = headers.findIndex(h =>
+    h.includes("share_percent") ||
     h.includes("percent") ||
     h.includes("percentage") ||
     h.includes("prozent") ||
@@ -425,8 +435,9 @@ function normalizeCsvRows(text) {
   );
 
   return rows.slice(1).map(cols => ({
-    score: parseNumber(cols[scoreIndex >= 0 ? scoreIndex : 0]),
-    percent: parseNumber(cols[percentIndex >= 0 ? percentIndex : 1])
+    value: parseNumber(cols[valueIndex >= 0 ? valueIndex : 0]),
+    pixelCount: parseNumber(cols[pixelCountIndex >= 0 ? pixelCountIndex : 1]),
+    percent: parseNumber(cols[percentIndex >= 0 ? percentIndex : 2])
   }));
 }
 
@@ -434,7 +445,7 @@ function toChartArray(rows) {
   const arr = Array.from({ length: 11 }, () => 0);
 
   rows.forEach(row => {
-    const score = Math.round(row.score);
+    const score = Math.round(row.value);
     const percent = row.percent;
 
     if (
@@ -450,6 +461,48 @@ function toChartArray(rows) {
   return arr;
 }
 
+function calculateWeightedStats(rows) {
+  const validRows = rows
+    .map(row => ({
+      value: Number(row.value),
+      weight: Number(row.pixelCount)
+    }))
+    .filter(row =>
+      Number.isFinite(row.value) &&
+      Number.isFinite(row.weight) &&
+      row.weight > 0
+    )
+    .sort((a, b) => a.value - b.value);
+
+  if (!validRows.length) {
+    return {
+      mean: null,
+      median: null
+    };
+  }
+
+  const totalWeight = validRows.reduce((sum, row) => sum + row.weight, 0);
+
+  const weightedSum = validRows.reduce((sum, row) => {
+    return sum + row.value * row.weight;
+  }, 0);
+
+  const mean = weightedSum / totalWeight;
+
+  let cumulativeWeight = 0;
+  let median = validRows[validRows.length - 1].value;
+
+  for (const row of validRows) {
+    cumulativeWeight += row.weight;
+    if (cumulativeWeight >= totalWeight / 2) {
+      median = row.value;
+      break;
+    }
+  }
+
+  return { mean, median };
+}
+
 function destroyChart() {
   if (scoreChart) {
     scoreChart.destroy();
@@ -457,7 +510,7 @@ function destroyChart() {
   }
 }
 
-function renderChart(percentages, period, scenario) {
+function renderChart(percentages, stats, period, scenario) {
   destroyChart();
 
   const labels = Array.from({ length: 11 }, (_, i) => String(i));
@@ -520,8 +573,13 @@ function renderChart(percentages, period, scenario) {
   });
 
   const scenarioText = isHistoricalPeriod(period) ? "" : `, ${scenario.toUpperCase()}`;
+  const statsText = [
+    Number.isFinite(stats.mean) ? `Mittelwert = ${stats.mean.toFixed(1)}` : null,
+    Number.isFinite(stats.median) ? `Median = ${stats.median.toFixed(1)}` : null
+  ].filter(Boolean).join(" | ");
+
   chartTitle.textContent = `Klimatische Anbaueignung (${period}${scenarioText}) der Olivenflächen (Stand 2000)`;
-  chartStatus.textContent = "";
+  chartStatus.textContent = statsText;
 }
 
 async function updateChart() {
@@ -548,8 +606,9 @@ async function updateChart() {
     const text = await response.text();
     const rows = normalizeCsvRows(text);
     const percentages = toChartArray(rows);
+    const stats = calculateWeightedStats(rows);
 
-    renderChart(percentages, period, scenario);
+    renderChart(percentages, stats, period, scenario);
   } catch (error) {
     console.error("Fehler beim Laden des Diagramms:", error);
     chartStatus.textContent = "Diagramm konnte nicht geladen werden.";
