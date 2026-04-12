@@ -10,19 +10,6 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 20
 }).addTo(map);
 
-const map = L.map("map", {
-  zoomAnimation: false,
-  fadeAnimation: false,
-  markerZoomAnimation: false
-}).setView([37.4, -4.5], 7);
-
-L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-  attribution: '&copy; OpenStreetMap-Mitwirkende &copy; CARTO',
-  subdomains: "abcd",
-  maxZoom: 20
-}).addTo(map);
-
-// Maßstab hinzufügen
 L.control.scale({
   position: "bottomleft",
   metric: true,
