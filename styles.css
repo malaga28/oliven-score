@@ -249,16 +249,17 @@ body {
     width: 16px;
     height: 16px;
   }
-}
-.leaflet-bottom.leaflet-left .leaflet-control-scale {
-  margin-left: 0;
-  margin-bottom: 10px;
+
+.leaflet-bottom.leaflet-left {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
-.leaflet-control-scale {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+.leaflet-bottom.leaflet-left .leaflet-control-scale {
+  margin: 0 0 10px 0;
+  pointer-events: auto;
 }
 
 .leaflet-control-scale-line {
