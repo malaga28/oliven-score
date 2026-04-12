@@ -65,9 +65,8 @@ body {
   min-height: 500px;
 }
 
-#legend {
+.map-legend {
   position: absolute;
-  bottom: 20px;
   right: 20px;
   background: rgba(255, 255, 255, 0.96);
   padding: 12px 14px;
@@ -78,16 +77,24 @@ body {
   z-index: 1000;
 }
 
-#legend h4 {
+.map-legend h4 {
   margin: 0 0 8px 0;
   font-size: 15px;
   color: #222;
 }
 
-#legend div {
+.map-legend div {
   display: flex;
   align-items: center;
   margin-bottom: 4px;
+}
+
+#oliveLegend {
+  bottom: 318px;
+}
+
+#legend {
+  bottom: 20px;
 }
 
 #chartPanel {
@@ -137,6 +144,10 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
+.oliveBox {
+  background: rgba(36, 110, 54, 0.6);
+}
+
 /* Farbskala 0–10 */
 .score0  { background: #8b0000; }
 .score1  { background: #b22222; }
@@ -165,6 +176,10 @@ body {
   padding: 4px 8px;
 }
 
+.hidden {
+  display: none;
+}
+
 @media (max-width: 900px) {
   #chartPanel {
     width: 340px;
@@ -177,9 +192,16 @@ body {
     height: 180px;
   }
 
-  #legend {
+  .map-legend {
     right: 10px;
+  }
+
+  #legend {
     bottom: 10px;
+  }
+
+  #oliveLegend {
+    bottom: 308px;
   }
 }
 
@@ -194,11 +216,18 @@ body {
     max-width: 280px;
   }
 
-  #legend {
+  .map-legend {
     right: 10px;
-    bottom: 10px;
     font-size: 13px;
     padding: 10px 12px;
+  }
+
+  #legend {
+    bottom: 10px;
+  }
+
+  #oliveLegend {
+    bottom: 286px;
   }
 
   #chartPanel {
