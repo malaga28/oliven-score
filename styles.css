@@ -250,3 +250,15 @@ body {
     height: 16px;
   }
 }
+
+.leaflet-control-scale {
+  margin-left: 10px;
+  margin-bottom: 10px;
+}
+
+.leaflet-control-scale-line {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #555;
+  color: #222;
+  font-weight: 600;
+}
