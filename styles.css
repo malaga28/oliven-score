@@ -262,3 +262,21 @@ body {
   color: #222;
   font-weight: 600;
 }
+
+.leaflet-bottom.leaflet-left .leaflet-control-scale {
+  margin-left: 0;
+  margin-bottom: 10px;
+}
+
+.leaflet-control-scale {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.leaflet-control-scale-line {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #555;
+  color: #222;
+  font-weight: 600;
+}
