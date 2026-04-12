@@ -10,15 +10,12 @@ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
   maxZoom: 20
 }).addTo(map);
 
-const scaleControl = L.control.scale({
-  position: "bottomleft",
+L.control.scale({
+  position: "topright",
   metric: true,
   imperial: false,
   maxWidth: 120
 }).addTo(map);
-
-const scaleWrapper = document.getElementById("scaleWrapper");
-scaleWrapper.appendChild(scaleControl.getContainer());
 
 const periods = [
   "1951-1980",
